@@ -3,6 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -36,14 +37,24 @@ const FileSchema = new mongoose.Schema({
 });
 const File = mongoose.model('File', FileSchema);
 
+// Ensure uploads directory exists
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads', { recursive: true });
+    console.log('Uploads directory created.');
+}
+
 // Upload endpoint (POST)
-app.post('/upload', upload.single('file'), async (req, res) => {
+app.post('/upload', (req, res, next) => {
+    console.log('Upload route hit. Headers:', req.headers); // Pre-Multer debug log
+    next();
+}, upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
-            console.error('No file received. Request:', req.body, req.file);
+            console.error('No file received. Request body:', req.body);
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
+        console.log('File received:', req.file); // Log file details
         const { originalname, mimetype, size } = req.file;
 
         // Save file metadata in the database
@@ -61,6 +72,17 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     }
 });
 
+app.post('/debug', (req, res) => {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString(); // Collect incoming data
+    });
+
+    req.on('end', () => {
+        console.log('Raw body received:', body); // Log raw body
+        res.status(200).json({ message: 'Raw data received', body });
+    });
+});
 
 // Get all uploaded files metadata (GET)
 app.get('/files', async (req, res) => {
@@ -68,7 +90,7 @@ app.get('/files', async (req, res) => {
         const files = await File.find();
         res.status(200).json(files);
     } catch (err) {
-        console.error(err);
+        console.error('Failed to retrieve files:', err);
         res.status(500).json({ message: 'Failed to retrieve files', error: err });
     }
 });
