@@ -78,20 +78,19 @@ app.use((req, res, next) => {
 // Upload a File
 app.post('/upload', upload.single('files'), async (req, res) => {
     try {
-        console.log('File received:', req.file); // Log file details
-
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-        const { originalname, mimetype, size } = req.file;
+        const { filename, originalname, mimetype, size } = req.file;
 
-        // Save file metadata to MongoDB
         const file = new File({
-            fileName: originalname,
+            fileName: filename, // Save the unique file name
+            originalName: originalname, // Save the original name for display
             fileType: mimetype,
             fileSize: size,
         });
+
         await file.save();
 
         res.status(200).json({
@@ -99,17 +98,19 @@ app.post('/upload', upload.single('files'), async (req, res) => {
             message: 'File uploaded successfully',
             file: {
                 id: file._id,
-                name: file.fileName,
+                name: file.originalName,
                 type: file.fileType,
                 size: file.fileSize,
                 uploadDate: file.uploadDate,
             },
         });
     } catch (err) {
-        console.error('Error in /upload route:', err.message); // Log error details
+        console.error('Error in /upload route:', err.message);
         res.status(500).json({ success: false, message: 'Error uploading file', error: err.message });
     }
 });
+
+
 
 // Get All Files
 app.get('/files', async (req, res) => {
@@ -126,23 +127,24 @@ app.get('/files', async (req, res) => {
 app.get('/download/:id', async (req, res) => {
     try {
         const file = await File.findById(req.params.id);
+
         if (!file) {
-            return res.status(404).json({ success: false, message: 'File not found' });
+            return res.status(404).json({ success: false, message: 'File metadata not found in database' });
         }
 
-        const filePath = path.join(UPLOAD_DIR, file.fileName);
+        const filePath = path.join(UPLOAD_DIR, file.fileName); // Use the stored unique file name
 
-        // Check if the file exists before sending it
         if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ success: false, message: 'File not found on server' });
+            return res.status(404).json({ success: false, message: `File "${file.originalName}" is missing from the server.` });
         }
 
-        res.download(filePath, file.fileName);
+        res.download(filePath, file.originalName); // Use the original name for the downloaded file
     } catch (err) {
-        console.error('Error in /download route:', err.message);
+        console.error('Error in /download/:id route:', err.message);
         res.status(500).json({ success: false, message: 'Error downloading file', error: err.message });
     }
 });
+
 
 // Start the Server
 app.listen(PORT, () => {
