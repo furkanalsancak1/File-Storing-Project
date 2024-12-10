@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUpload, faTrashAlt, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 
-const UploadSection = () => {
+const UploadSection = ({ onFilesSubmit }) => {
     const [isActive, setIsActive] = useState(false);
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState([]); // Track progress for each file
@@ -10,38 +10,45 @@ const UploadSection = () => {
     const [message, setMessage] = useState('');
 
     // Upload files to the backend
-    const uploadFileToServer = async (file, index) => {
-        const formData = new FormData();
-        formData.append('files', file);
+    // Inside uploadFileToServer function
+const uploadFileToServer = async (file, index) => {
+    const formData = new FormData();
+    formData.append('files', file);
 
-        try {
-            const response = await fetch('http://localhost:5001/upload', {
-                method: 'POST',
-                body: formData,
-            });
+    try {
+        const response = await fetch('http://localhost:5001/upload', {
+            method: 'POST',
+            body: formData,
+        });
 
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log('Upload successful:', data);
-
-            // Mark upload as completed
-            setUploadStatus((prev) => {
-                const newStatus = [...prev];
-                newStatus[index] = 'uploaded';
-                return newStatus;
-            });
-        } catch (error) {
-            console.error('Error uploading file:', error.message);
-            setUploadStatus((prev) => {
-                const newStatus = [...prev];
-                newStatus[index] = 'failed';
-                return newStatus;
-            });
+        if (!response.ok) {
+            throw new Error(`Upload failed: ${response.statusText}`);
         }
-    };
+
+        const data = await response.json();
+        console.log('Upload successful:', data);
+
+        // Mark upload as completed
+        setUploadStatus((prev) => {
+            const newStatus = [...prev];
+            newStatus[index] = 'uploaded';
+            return newStatus;
+        });
+
+        // Trigger callback to inform parent component
+        if (onFilesSubmit) {
+            onFilesSubmit(); // Notify parent of the successful upload
+        }
+    } catch (error) {
+        console.error('Error uploading file:', error.message);
+        setUploadStatus((prev) => {
+            const newStatus = [...prev];
+            newStatus[index] = 'failed';
+            return newStatus;
+        });
+    }
+};
+
 
     // Handle File Upload
     const handleFileUpload = (event) => {
@@ -94,6 +101,19 @@ const UploadSection = () => {
         setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
         setUploadProgress((prev) => prev.filter((_, i) => i !== index));
         setUploadStatus((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    // Submit Files to Parent
+    const handleSubmit = () => {
+        if (uploadedFiles.length > 0) {
+            onFilesSubmit(uploadedFiles); // Pass files to parent
+            setUploadedFiles([]); // Clear the upload section
+            setUploadProgress([]);
+            setUploadStatus([]);
+            setMessage('Files submitted successfully!');
+        } else {
+            setMessage('No files to submit.');
+        }
     };
 
     return (
@@ -168,6 +188,13 @@ const UploadSection = () => {
                     </div>
                 ))}
             </div>
+
+            {/* Submit Button */}
+            {uploadedFiles.length > 0 && (
+                <button style={styles.submitButton} onClick={handleSubmit}>
+                    Submit Files
+                </button>
+            )}
         </div>
     );
 };
@@ -201,7 +228,7 @@ const styles = {
         color: '#64748B',
     },
     message: {
-        color: '#EF4444',
+        color: '#10B981',
         textAlign: 'center',
     },
     filePreviewContainer: {
@@ -262,6 +289,16 @@ const styles = {
         cursor: 'pointer',
         fontSize: '12px',
         alignSelf: 'flex-end',
+    },
+    submitButton: {
+        padding: '10px 20px',
+        backgroundColor: '#3B82F6',
+        color: '#FFFFFF',
+        borderRadius: '8px',
+        border: 'none',
+        cursor: 'pointer',
+        fontWeight: '600',
+        marginTop: '20px',
     },
 };
 

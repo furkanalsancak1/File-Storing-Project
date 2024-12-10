@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import UploadSection from './UploadSection'; // Import the new UploadSection component
+import UploadSection from './UploadSection';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilePdf, faTrashAlt, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faFilePdf, faTrashAlt, faDownload, faFileImage, faFileAlt } from '@fortawesome/free-solid-svg-icons';
 
 const MainPage = () => {
     const [files, setFiles] = useState([]);
@@ -9,25 +9,25 @@ const MainPage = () => {
     const [error, setError] = useState(null);
 
     // Fetch files from the backend
-    useEffect(() => {
-        const fetchFiles = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const response = await fetch('http://localhost:5001/files');
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.statusText}`);
-                }
-                const data = await response.json();
-                setFiles(data);
-            } catch (err) {
-                setError('Failed to fetch files.');
-                console.error(err);
-            } finally {
-                setLoading(false);
+    const fetchFiles = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch('http://localhost:5001/files');
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
             }
-        };
+            const data = await response.json();
+            setFiles(data);
+        } catch (err) {
+            setError('Failed to fetch files.');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchFiles();
     }, []);
 
@@ -45,11 +45,18 @@ const MainPage = () => {
                 throw new Error('Failed to delete file.');
             }
 
-            setFiles((prevFiles) => prevFiles.filter((file) => file._id !== id));
+            setFiles((prevFiles) => prevFiles.filter((file) => file._id !== id)); // Remove file from list
         } catch (err) {
             console.error(err);
             setError('Error deleting file.');
         }
+    };
+
+    // Get icon based on file type
+    const getFileIcon = (fileType) => {
+        if (fileType.includes('pdf')) return faFilePdf;
+        if (fileType.includes('image')) return faFileImage;
+        return faFileAlt;
     };
 
     return (
@@ -60,8 +67,12 @@ const MainPage = () => {
                 <p style={styles.subtitle}>Your files, anywhere, anytime.</p>
             </header>
 
-            {/* Drag-and-Drop Upload Section */}
-            <UploadSection onUploadSuccess={() => setFiles([])} />
+            {/* Upload Section */}
+            <UploadSection
+                onUploadSuccess={(newFile) => {
+                    setFiles((prevFiles) => [...prevFiles, newFile]); // Add newly uploaded file
+                }}
+            />
 
             {/* File List Section */}
             <section style={styles.fileList}>
@@ -71,12 +82,11 @@ const MainPage = () => {
                 {!loading && !error && files.length === 0 && <p>No files uploaded yet.</p>}
                 {!loading &&
                     !error &&
-                    files.length > 0 &&
                     files.map((file) => (
                         <div style={styles.fileCard} key={file._id}>
                             <div style={styles.fileInfo}>
                                 <FontAwesomeIcon
-                                    icon={file.fileType === 'application/pdf' ? faFilePdf : faFilePdf} // Adjust icons based on file type
+                                    icon={getFileIcon(file.fileType)} // Dynamic icon based on file type
                                     style={styles.fileIcon}
                                 />
                                 <div>
