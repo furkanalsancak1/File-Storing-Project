@@ -7,12 +7,67 @@ const UploadSection = () => {
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [uploadProgress, setUploadProgress] = useState([]); // Track progress for each file
     const [uploadStatus, setUploadStatus] = useState([]); // Track status for each file
+    const [message, setMessage] = useState('');
 
-    // Simulate upload progress
+    // Upload files to the backend
+    const uploadFileToServer = async (file, index) => {
+        const formData = new FormData();
+        formData.append('files', file);
+
+        try {
+            const response = await fetch('http://localhost:5001/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('Upload successful:', data);
+
+            // Mark upload as completed
+            setUploadStatus((prev) => {
+                const newStatus = [...prev];
+                newStatus[index] = 'uploaded';
+                return newStatus;
+            });
+        } catch (error) {
+            console.error('Error uploading file:', error.message);
+            setUploadStatus((prev) => {
+                const newStatus = [...prev];
+                newStatus[index] = 'failed';
+                return newStatus;
+            });
+        }
+    };
+
+    // Handle File Upload
+    const handleFileUpload = (event) => {
+        const files = Array.from(event.target.files);
+
+        if (files.length === 0) {
+            setMessage('No files selected.');
+            return;
+        }
+
+        setUploadedFiles((prevFiles) => [...prevFiles, ...files]);
+        setUploadProgress((prev) => [...prev, ...files.map(() => 0)]);
+        setUploadStatus((prev) => [...prev, ...files.map(() => 'uploading')]);
+
+        files.forEach((file, idx) => {
+            const fileIndex = uploadedFiles.length + idx; // Calculate correct index
+            simulateUpload(fileIndex); // Start progress simulation
+            uploadFileToServer(file, fileIndex); // Perform real upload
+        });
+    };
+
+    // Simulate Upload Progress
     const simulateUpload = (index) => {
         let progress = 0;
         const interval = setInterval(() => {
-            progress += 10; // Increment progress
+            progress += 10;
             setUploadProgress((prev) => {
                 const newProgress = [...prev];
                 newProgress[index] = progress;
@@ -21,25 +76,8 @@ const UploadSection = () => {
 
             if (progress >= 100) {
                 clearInterval(interval); // Clear interval when upload completes
-                setUploadStatus((prev) => {
-                    const newStatus = [...prev];
-                    newStatus[index] = 'uploaded'; // Mark file as uploaded
-                    return newStatus;
-                });
             }
-        }, 200); // Update every 200ms
-    };
-
-    // Handle File Upload (Add to state and start upload simulation)
-    const handleFileUpload = (event) => {
-        const files = Array.from(event.target.files); // Get selected files
-        setUploadedFiles((prevFiles) => [...prevFiles, ...files]); // Add files to state
-        setUploadProgress((prev) => [...prev, ...files.map(() => 0)]); // Initialize progress for each file
-        setUploadStatus((prev) => [...prev, ...files.map(() => 'uploading')]); // Set status to "uploading"
-
-        files.forEach((_, index) => {
-            simulateUpload(uploadedFiles.length + index); // Simulate upload for each file
-        });
+        }, 200);
     };
 
     // Handle File Drop
@@ -47,24 +85,15 @@ const UploadSection = () => {
         event.preventDefault();
         setIsActive(false);
 
-        const files = Array.from(event.dataTransfer.files); // Get dropped files
-        setUploadedFiles((prevFiles) => [...prevFiles, ...files]); // Add files to state
-        setUploadProgress((prev) => [...prev, ...files.map(() => 0)]); // Initialize progress for each file
-        setUploadStatus((prev) => [...prev, ...files.map(() => 'uploading')]); // Set status to "uploading"
-
-        files.forEach((_, index) => {
-            simulateUpload(uploadedFiles.length + index); // Simulate upload for each file
-        });
+        const files = Array.from(event.dataTransfer.files);
+        handleFileUpload({ target: { files } });
     };
 
     // Delete File
     const handleDelete = (index) => {
-        const updatedFiles = uploadedFiles.filter((_, i) => i !== index); // Remove file by index
-        const updatedProgress = uploadProgress.filter((_, i) => i !== index); // Remove progress for the file
-        const updatedStatus = uploadStatus.filter((_, i) => i !== index); // Remove status for the file
-        setUploadedFiles(updatedFiles);
-        setUploadProgress(updatedProgress);
-        setUploadStatus(updatedStatus);
+        setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+        setUploadProgress((prev) => prev.filter((_, i) => i !== index));
+        setUploadStatus((prev) => prev.filter((_, i) => i !== index));
     };
 
     return (
@@ -98,6 +127,8 @@ const UploadSection = () => {
                 />
             </section>
 
+            {message && <p style={styles.message}>{message}</p>}
+
             {/* Uploaded Files Preview with Progress */}
             <div style={styles.filePreviewContainer}>
                 {uploadedFiles.map((file, index) => (
@@ -115,6 +146,8 @@ const UploadSection = () => {
                                 <FontAwesomeIcon icon={faCheckCircle} style={styles.successIcon} />
                                 Uploaded
                             </div>
+                        ) : uploadStatus[index] === 'failed' ? (
+                            <div style={{ color: '#EF4444' }}>Failed</div>
                         ) : (
                             <div style={styles.progressBarContainer}>
                                 <div
@@ -166,6 +199,10 @@ const styles = {
     uploadSubText: {
         fontSize: '14px',
         color: '#64748B',
+    },
+    message: {
+        color: '#EF4444',
+        textAlign: 'center',
     },
     filePreviewContainer: {
         marginTop: '20px',

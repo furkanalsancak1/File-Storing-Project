@@ -1,9 +1,57 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import UploadSection from './UploadSection'; // Import the new UploadSection component
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFilePdf, faTrashAlt, faDownload } from '@fortawesome/free-solid-svg-icons';
 
 const MainPage = () => {
+    const [files, setFiles] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Fetch files from the backend
+    useEffect(() => {
+        const fetchFiles = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const response = await fetch('http://localhost:5001/files');
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+                const data = await response.json();
+                setFiles(data);
+            } catch (err) {
+                setError('Failed to fetch files.');
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFiles();
+    }, []);
+
+    // Handle File Deletion
+    const handleDelete = async (id) => {
+        const confirmDelete = window.confirm('Are you sure you want to delete this file?');
+        if (!confirmDelete) return;
+
+        try {
+            const response = await fetch(`http://localhost:5001/delete/${id}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete file.');
+            }
+
+            setFiles((prevFiles) => prevFiles.filter((file) => file._id !== id));
+        } catch (err) {
+            console.error(err);
+            setError('Error deleting file.');
+        }
+    };
+
     return (
         <div style={styles.container}>
             {/* Header */}
@@ -13,41 +61,50 @@ const MainPage = () => {
             </header>
 
             {/* Drag-and-Drop Upload Section */}
-            <UploadSection />
+            <UploadSection onUploadSuccess={() => setFiles([])} />
 
             {/* File List Section */}
             <section style={styles.fileList}>
                 <h2 style={styles.fileListTitle}>Your Files</h2>
-
-                {/* File Card 1 */}
-                <div style={styles.fileCard}>
-                    <div style={styles.fileInfo}>
-                        <FontAwesomeIcon icon={faFilePdf} style={styles.fileIcon} />
-                        <div>
-                            <p style={styles.fileName}>document.pdf</p>
-                            <p style={styles.fileMeta}>2.5 MB • Uploaded 10 months ago</p>
+                {loading && <p>Loading files...</p>}
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+                {!loading && !error && files.length === 0 && <p>No files uploaded yet.</p>}
+                {!loading &&
+                    !error &&
+                    files.length > 0 &&
+                    files.map((file) => (
+                        <div style={styles.fileCard} key={file._id}>
+                            <div style={styles.fileInfo}>
+                                <FontAwesomeIcon
+                                    icon={file.fileType === 'application/pdf' ? faFilePdf : faFilePdf} // Adjust icons based on file type
+                                    style={styles.fileIcon}
+                                />
+                                <div>
+                                    <p style={styles.fileName}>{file.fileName}</p>
+                                    <p style={styles.fileMeta}>
+                                        {`${(file.fileSize / 1024).toFixed(2)} KB • Uploaded ${
+                                            new Date(file.uploadDate).toDateString()
+                                        }`}
+                                    </p>
+                                </div>
+                            </div>
+                            <div style={styles.fileActions}>
+                                <a
+                                    href={`http://localhost:5001/download/${file._id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#3B82F6' }}
+                                >
+                                    <FontAwesomeIcon icon={faDownload} style={styles.actionIcon} />
+                                </a>
+                                <FontAwesomeIcon
+                                    icon={faTrashAlt}
+                                    style={styles.actionIcon}
+                                    onClick={() => handleDelete(file._id)}
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <div style={styles.fileActions}>
-                        <FontAwesomeIcon icon={faDownload} style={styles.actionIcon} />
-                        <FontAwesomeIcon icon={faTrashAlt} style={styles.actionIcon} />
-                    </div>
-                </div>
-
-                {/* File Card 2 */}
-                <div style={styles.fileCard}>
-                    <div style={styles.fileInfo}>
-                        <FontAwesomeIcon icon={faFilePdf} style={styles.fileIcon} />
-                        <div>
-                            <p style={styles.fileName}>image.jpg</p>
-                            <p style={styles.fileMeta}>1.8 MB • Uploaded 10 months ago</p>
-                        </div>
-                    </div>
-                    <div style={styles.fileActions}>
-                        <FontAwesomeIcon icon={faDownload} style={styles.actionIcon} />
-                        <FontAwesomeIcon icon={faTrashAlt} style={styles.actionIcon} />
-                    </div>
-                </div>
+                    ))}
             </section>
         </div>
     );

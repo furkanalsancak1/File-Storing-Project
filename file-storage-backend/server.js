@@ -126,25 +126,72 @@ app.get('/files', async (req, res) => {
 // Download a File by ID
 app.get('/download/:id', async (req, res) => {
     try {
-        const file = await File.findById(req.params.id);
+        const fileId = req.params.id;
 
+        // Validate the ID
+        if (!mongoose.Types.ObjectId.isValid(fileId)) {
+            console.error('Invalid file ID:', fileId);
+            return res.status(400).json({ success: false, message: 'Invalid file ID' });
+        }
+
+        // Find the file in the database
+        const file = await File.findById(fileId);
         if (!file) {
+            console.error('File metadata not found in database:', fileId);
             return res.status(404).json({ success: false, message: 'File metadata not found in database' });
         }
 
-        const filePath = path.join(UPLOAD_DIR, file.fileName); // Use the stored unique file name
+        // Construct the file path
+        const filePath = path.join(__dirname, 'uploads', file.fileName);
+        console.log('Resolved file path for download:', filePath);
 
+        // Check if the file exists
         if (!fs.existsSync(filePath)) {
+            console.error('File not found on server:', filePath);
             return res.status(404).json({ success: false, message: `File "${file.originalName}" is missing from the server.` });
         }
 
-        res.download(filePath, file.originalName); // Use the original name for the downloaded file
+        // Download the file
+        console.log('File found, initiating download:', filePath);
+        res.download(filePath, file.originalName);
     } catch (err) {
         console.error('Error in /download/:id route:', err.message);
         res.status(500).json({ success: false, message: 'Error downloading file', error: err.message });
     }
 });
 
+app.delete('/delete/:id', async (req, res) => {
+    try {
+        const fileId = req.params.id;
+
+        // Check if the file ID is valid
+        if (!mongoose.Types.ObjectId.isValid(fileId)) {
+            return res.status(400).json({ success: false, message: 'Invalid file ID' });
+        }
+
+        // Find the file in the database
+        const file = await File.findById(fileId);
+        if (!file) {
+            return res.status(404).json({ success: false, message: 'File not found in database' });
+        }
+
+        // Delete the file from the uploads folder
+        const filePath = path.join(__dirname, 'uploads', file.fileName);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath); // Remove the file from the server
+        } else {
+            console.warn(`File not found on server: ${filePath}`);
+        }
+
+        // Remove the file metadata from the database
+        await file.deleteOne();
+
+        res.status(200).json({ success: true, message: 'File deleted successfully' });
+    } catch (err) {
+        console.error('Error in DELETE /delete/:id route:', err.message);
+        res.status(500).json({ success: false, message: 'Error deleting file', error: err.message });
+    }
+});
 
 // Start the Server
 app.listen(PORT, () => {
