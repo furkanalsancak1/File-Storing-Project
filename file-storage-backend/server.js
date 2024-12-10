@@ -27,6 +27,7 @@ const storage = multer.diskStorage({
     },
 });
 const upload = multer({ storage });
+module.exports = upload;
 
 // File metadata schema
 const FileSchema = new mongoose.Schema({
@@ -36,6 +37,7 @@ const FileSchema = new mongoose.Schema({
     uploadDate: { type: Date, default: Date.now },
 });
 const File = mongoose.model('File', FileSchema);
+module.exports = File;
 
 // Ensure uploads directory exists
 if (!fs.existsSync('uploads')) {
@@ -44,45 +46,20 @@ if (!fs.existsSync('uploads')) {
 }
 
 // Upload endpoint (POST)
-app.post('/upload', (req, res, next) => {
-    console.log('Upload route hit. Headers:', req.headers); // Pre-Multer debug log
-    next();
-}, upload.single('file'), async (req, res) => {
-    try {
-        if (!req.file) {
-            console.error('No file received. Request body:', req.body);
-            return res.status(400).json({ message: 'No file uploaded' });
-        }
-
-        console.log('File received:', req.file); // Log file details
-        const { originalname, mimetype, size } = req.file;
-
-        // Save file metadata in the database
-        const newFile = new File({
-            fileName: originalname,
-            fileType: mimetype,
-            fileSize: size,
-        });
-        await newFile.save();
-
-        res.status(201).json({ message: 'File uploaded successfully', file: newFile });
-    } catch (err) {
-        console.error('File upload error:', err);
-        res.status(500).json({ message: 'File upload failed', error: err.message });
-    }
-});
-
-app.post('/debug', (req, res) => {
+app.post('/upload', (req, res) => {
+    console.log('Headers:', req.headers);
     let body = '';
-    req.on('data', chunk => {
-        body += chunk.toString(); // Collect incoming data
+    req.on('data', (chunk) => {
+        body += chunk.toString();
     });
 
     req.on('end', () => {
-        console.log('Raw body received:', body); // Log raw body
-        res.status(200).json({ message: 'Raw data received', body });
+        console.log('Raw Body Received:', body);
+        res.status(200).json({ message: 'Raw body received', body });
     });
 });
+
+
 
 // Get all uploaded files metadata (GET)
 app.get('/files', async (req, res) => {
