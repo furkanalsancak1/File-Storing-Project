@@ -185,13 +185,23 @@ const styles = {
     },
     fileActions: {
         display: 'flex',
-        gap: '16px',
+        gap: '20px', // Adds proper spacing between buttons
     },
     actionIcon: {
         fontSize: '20px',
         color: '#64748B',
         cursor: 'pointer',
         transition: 'color 0.2s',
+    },
+    submitButton: {
+        backgroundColor: '#3B82F6',
+        color: '#FFFFFF',
+        border: 'none',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontSize: '16px',
+        marginBottom: '20px',
     },
 };
 

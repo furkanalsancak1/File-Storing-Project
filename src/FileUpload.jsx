@@ -37,7 +37,7 @@ function FileUpload() {
 
         setLoading(true); // Start loading
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('files', file); // Updated to match backend expectation
 
         try {
             const response = await fetch('http://localhost:5001/upload', {
@@ -48,6 +48,9 @@ function FileUpload() {
             const data = await response.json();
             if (response.ok) {
                 setMessage('File uploaded successfully!');
+                // Clear file input and state after success
+                setFile(null);
+                document.querySelector('input[type="file"]').value = '';
             } else {
                 setMessage(`Upload failed: ${data.message || 'Unexpected error occurred.'}`);
             }
@@ -62,8 +65,12 @@ function FileUpload() {
     return (
         <div>
             <h2>Upload a File</h2>
-            <input type="file" onChange={handleFileChange} />
-            <button onClick={handleUpload} disabled={loading}>
+            <input
+                type="file"
+                onChange={handleFileChange}
+                disabled={loading} // Disable input while uploading
+            />
+            <button onClick={handleUpload} disabled={loading || !file}>
                 {loading ? 'Uploading...' : 'Upload'}
             </button>
             {message && <p>{message}</p>}
