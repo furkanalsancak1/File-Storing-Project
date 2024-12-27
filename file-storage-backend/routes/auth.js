@@ -1,5 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User'); // Import User model
@@ -44,19 +43,11 @@ router.post(
                 return res.status(400).json({ success: false, message: 'Email already in use' });
             }
 
-            // Hash the password
-            // Inside your register route
-            const salt = await bcrypt.genSalt(10);
-            console.log('Plain Password:', password); // Log plain password
-            const hashedPassword = await bcrypt.hash(password, salt);
-            console.log('Hashed Password:', hashedPassword); // Log hashed password
-
-
-            // Save the user
+            // Save the user (No hashing applied)
             const user = new User({
                 username: username.trim(),
                 email: normalizedEmail,
-                password: hashedPassword,
+                password, // Save password directly for now
             });
             await user.save();
 
@@ -93,8 +84,8 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid email or password' });
         }
 
-        // Compare provided password with the hashed password in the database
-        const isMatch = await bcrypt.compare(password, user.password);
+        // Direct comparison of plain text passwords (No hashing applied)
+        const isMatch = password === user.password;
         console.log('Password comparison result:', isMatch);
 
         if (!isMatch) {
@@ -125,6 +116,5 @@ router.post('/login', async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
-
 
 module.exports = router;

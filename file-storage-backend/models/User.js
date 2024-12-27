@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
 
 const UserSchema = new mongoose.Schema({
     username: {
@@ -21,34 +20,23 @@ const UserSchema = new mongoose.Schema({
     },
 });
 
-// Middleware to hash the password before saving the user
+// Temporary bypass for password hashing
+// Middleware to hash the password before saving the user (DISABLED)
 UserSchema.pre('save', async function (next) {
     try {
-        // Only hash the password if it has been modified or is new
-        if (!this.isModified('password')) return next();
-
-        // Generate a salt
-        const salt = await bcrypt.genSalt(10);
-
-        // Hash the password with the salt
-        this.password = await bcrypt.hash(this.password, salt);
+        // Do not hash the password for now
         next();
     } catch (error) {
-        console.error('Error hashing password:', error.message);
+        console.error('Error in save middleware:', error.message);
         next(error);
     }
 });
 
-// Instance method to update the user's password
+// Instance method to update the user's password (DISABLED HASHING)
 UserSchema.methods.updatePassword = async function (newPassword) {
     try {
-        // Generate a salt
-        const salt = await bcrypt.genSalt(10);
-
-        // Hash the new password with the salt
-        this.password = await bcrypt.hash(newPassword, salt);
-
-        // Save the updated password
+        // Save the new password directly (no hashing)
+        this.password = newPassword;
         await this.save();
     } catch (error) {
         console.error('Error updating password:', error.message);
@@ -56,10 +44,11 @@ UserSchema.methods.updatePassword = async function (newPassword) {
     }
 };
 
-// Instance method to validate the password during login
+// Instance method to validate the password during login (PLAIN TEXT VALIDATION)
 UserSchema.methods.validatePassword = async function (plainPassword) {
     try {
-        return await bcrypt.compare(plainPassword, this.password);
+        // Compare plain text passwords directly
+        return plainPassword === this.password;
     } catch (error) {
         console.error('Error validating password:', error.message);
         throw error;
