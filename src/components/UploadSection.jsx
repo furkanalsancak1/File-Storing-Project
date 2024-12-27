@@ -9,48 +9,39 @@ const UploadSection = ({ onFilesSubmit }) => {
     const [uploadStatus, setUploadStatus] = useState([]); // Track status for each file
     const [message, setMessage] = useState('');
 
-    // Upload files to the backend
-    // Inside uploadFileToServer function
-const uploadFileToServer = async (file, index) => {
-    const formData = new FormData();
-    formData.append('files', file);
+    const uploadFileToServer = async (file, index) => {
+        const formData = new FormData();
+        formData.append('files', file);
 
-    try {
-        const response = await fetch('http://localhost:5001/upload', {
-            method: 'POST',
-            body: formData,
-        });
+        try {
+            const response = await fetch('http://localhost:5001/upload', {
+                method: 'POST',
+                body: formData,
+            });
 
-        if (!response.ok) {
-            throw new Error(`Upload failed: ${response.statusText}`);
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('Upload successful:', data);
+
+            // Mark upload as completed
+            setUploadStatus((prev) => {
+                const newStatus = [...prev];
+                newStatus[index] = 'uploaded';
+                return newStatus;
+            });
+        } catch (error) {
+            console.error('Error uploading file:', error.message);
+            setUploadStatus((prev) => {
+                const newStatus = [...prev];
+                newStatus[index] = 'failed';
+                return newStatus;
+            });
         }
+    };
 
-        const data = await response.json();
-        console.log('Upload successful:', data);
-
-        // Mark upload as completed
-        setUploadStatus((prev) => {
-            const newStatus = [...prev];
-            newStatus[index] = 'uploaded';
-            return newStatus;
-        });
-
-        // Trigger callback to inform parent component
-        if (onFilesSubmit) {
-            onFilesSubmit(); // Notify parent of the successful upload
-        }
-    } catch (error) {
-        console.error('Error uploading file:', error.message);
-        setUploadStatus((prev) => {
-            const newStatus = [...prev];
-            newStatus[index] = 'failed';
-            return newStatus;
-        });
-    }
-};
-
-
-    // Handle File Upload
     const handleFileUpload = (event) => {
         const files = Array.from(event.target.files);
 
@@ -70,7 +61,6 @@ const uploadFileToServer = async (file, index) => {
         });
     };
 
-    // Simulate Upload Progress
     const simulateUpload = (index) => {
         let progress = 0;
         const interval = setInterval(() => {
@@ -87,7 +77,6 @@ const uploadFileToServer = async (file, index) => {
         }, 200);
     };
 
-    // Handle File Drop
     const handleDrop = (event) => {
         event.preventDefault();
         setIsActive(false);
@@ -96,29 +85,31 @@ const uploadFileToServer = async (file, index) => {
         handleFileUpload({ target: { files } });
     };
 
-    // Delete File
     const handleDelete = (index) => {
         setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
         setUploadProgress((prev) => prev.filter((_, i) => i !== index));
         setUploadStatus((prev) => prev.filter((_, i) => i !== index));
     };
 
-    // Submit Files to Parent
-    const handleSubmit = () => {
-        if (uploadedFiles.length > 0) {
-            onFilesSubmit(uploadedFiles); // Pass files to parent
-            setUploadedFiles([]); // Clear the upload section
-            setUploadProgress([]);
-            setUploadStatus([]);
-            setMessage('Files submitted successfully!');
-        } else {
+    const handleSubmit = async () => {
+        if (uploadedFiles.length === 0) {
             setMessage('No files to submit.');
+            return;
         }
+
+        // Simulate submission or pass files to parent
+        if (onFilesSubmit) {
+            onFilesSubmit(uploadedFiles);
+        }
+
+        setUploadedFiles([]); // Clear files after submission
+        setUploadProgress([]);
+        setUploadStatus([]);
+        setMessage('Files submitted successfully!');
     };
 
     return (
         <div>
-            {/* Upload Section */}
             <section
                 style={{
                     ...styles.uploadArea,
@@ -137,7 +128,6 @@ const uploadFileToServer = async (file, index) => {
                 <p style={styles.uploadText}>Drop files here or click to upload</p>
                 <p style={styles.uploadSubText}>Upload any file type</p>
 
-                {/* Hidden file input */}
                 <input
                     id="fileInput"
                     type="file"
@@ -149,7 +139,6 @@ const uploadFileToServer = async (file, index) => {
 
             {message && <p style={styles.message}>{message}</p>}
 
-            {/* Uploaded Files Preview with Progress */}
             <div style={styles.filePreviewContainer}>
                 {uploadedFiles.map((file, index) => (
                     <div key={index} style={styles.fileCard}>
@@ -160,7 +149,6 @@ const uploadFileToServer = async (file, index) => {
                             </p>
                         </div>
 
-                        {/* Progress Bar or Uploaded Status */}
                         {uploadStatus[index] === 'uploaded' ? (
                             <div style={styles.uploadedStatus}>
                                 <FontAwesomeIcon icon={faCheckCircle} style={styles.successIcon} />

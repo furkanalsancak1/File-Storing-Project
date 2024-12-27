@@ -122,6 +122,17 @@ app.post('/upload', upload.single('files'), async (req, res) => {
     }
 });
 
+app.post('/submit', (req, res) => {
+    const { files } = req.body;
+
+    if (!files || files.length === 0) {
+        return res.status(400).json({ success: false, message: 'No files to submit' });
+    }
+
+    console.log('Files submitted:', files);
+    res.status(200).json({ success: true, message: 'Files successfully submitted' });
+});
+
 // Get All Files Route
 app.get('/files', async (req, res) => {
     try {
