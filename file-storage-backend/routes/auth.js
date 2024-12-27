@@ -117,4 +117,28 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Profile Route
+router.get('/profile', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            return res.status(401).json({ success: false, message: 'No token provided' });
+        }
+
+        const token = authHeader.split(' ')[1]; // Extract the token
+        const decoded = jwt.verify(token, JWT_SECRET); // Verify and decode the token
+
+        const user = await User.findById(decoded.id).select('-password'); // Fetch user without password
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.status(200).json({ success: true, user }); // Return user information
+    } catch (err) {
+        console.error('Error fetching profile:', err.message);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+
+
 module.exports = router;

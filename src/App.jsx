@@ -9,11 +9,11 @@ import ProfilePage from './components/profile-page.jsx';
 import ProtectedRoute from './ProtectedRoute';
 
 function App() {
-    const [isAuthenticated, setAuthenticated] = useState(!!localStorage.getItem('token')); // Check token for initial state
+    const [isAuthenticated, setAuthenticated] = useState(!!localStorage.getItem('token')); // Initialize based on token
 
     const handleLogout = () => {
         localStorage.removeItem('token'); // Clear token
-        setAuthenticated(false); // Update state
+        setAuthenticated(false); // Update authentication state
     };
 
     return (
