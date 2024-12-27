@@ -3,13 +3,20 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const fs = require('fs');
 const multer = require('multer');
+const { Storage } = require('@google-cloud/storage');
 const authRoutes = require('./routes/auth'); // Auth routes
-const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+// Initialize Google Cloud Storage
+const storage = new Storage({
+    keyFilename: path.join(__dirname, 'google-cloud-key.json'), // Ensure this file exists in your directory
+});
+
+const bucketName = process.env.GCS_BUCKET_NAME; // Set your bucket name in the .env file
+const bucket = storage.bucket(bucketName);
 
 // Middleware
 app.use(cors());
@@ -27,45 +34,25 @@ mongoose
 // Routes
 app.use('/auth', authRoutes);
 
-// Ensure uploads directory exists
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    console.log('Uploads directory created.');
-} else {
-    console.log('Uploads directory exists:', UPLOAD_DIR);
-}
-
 // Multer Configuration
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, UPLOAD_DIR); // Upload directory
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`); // Unique file names
-    },
-});
-
 const upload = multer({
-    storage,
+    storage: multer.memoryStorage(), // Store file in memory for Google Cloud upload
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB limit
     fileFilter: (req, file, cb) => {
-        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Unsupported file type'));
-        }
+        // Allow all file types
+        cb(null, true);
     },
 });
+
 
 // MongoDB Schema for File Metadata
 const FileSchema = new mongoose.Schema({
-    fileName: String, // Unique name on server
-    originalName: String, // User-friendly display name
+    fileName: String, // File name in the bucket
+    originalName: String, // Original file name
     fileType: String,
     fileSize: Number,
     uploadDate: { type: Date, default: Date.now },
+    fileUrl: String, // URL for accessing the file
 });
 
 const File = mongoose.model('File', FileSchema);
@@ -83,31 +70,55 @@ app.post('/upload', upload.single('files'), async (req, res) => {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-        const { filename, originalname, mimetype, size } = req.file;
+        const { originalname, mimetype, size } = req.file;
 
-        const file = new File({
-            fileName: filename,
-            originalName: originalname,
-            fileType: mimetype,
-            fileSize: size,
+        // Create a unique filename for the cloud
+        const cloudFileName = `${Date.now()}-${originalname}`;
+        const blob = bucket.file(cloudFileName);
+
+        const blobStream = blob.createWriteStream({
+            resumable: false,
+            contentType: mimetype,
         });
 
-        await file.save();
-
-        res.status(200).json({
-            success: true,
-            message: 'File uploaded successfully',
-            file: {
-                id: file._id,
-                name: file.originalName,
-                type: file.fileType,
-                size: file.fileSize,
-                uploadDate: file.uploadDate,
-            },
+        blobStream.on('error', (err) => {
+            console.error('Error uploading to Google Cloud:', err.message);
+            res.status(500).json({ success: false, message: 'Error uploading file', error: err.message });
         });
+
+        blobStream.on('finish', async () => {
+            // File upload complete
+            const publicUrl = `https://storage.googleapis.com/${bucketName}/${blob.name}`;
+
+            // Save file metadata to MongoDB
+            const file = new File({
+                fileName: cloudFileName,
+                originalName: originalname,
+                fileType: mimetype,
+                fileSize: size,
+                fileUrl: publicUrl,
+            });
+
+            await file.save();
+
+            res.status(200).json({
+                success: true,
+                message: 'File uploaded successfully to Google Cloud',
+                file: {
+                    id: file._id,
+                    name: file.originalName,
+                    type: file.fileType,
+                    size: file.fileSize,
+                    uploadDate: file.uploadDate,
+                    url: file.fileUrl,
+                },
+            });
+        });
+
+        blobStream.end(req.file.buffer);
     } catch (err) {
         console.error('Error uploading file:', err.message);
-        res.status(500).json({ success: false, message: 'Error uploading file', error: err.message });
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
 
@@ -138,15 +149,8 @@ app.get('/download/:id', async (req, res) => {
             return res.status(404).json({ success: false, message: 'File not found in database' });
         }
 
-        // File path on server
-        const filePath = path.join(UPLOAD_DIR, file.fileName);
-
-        // Check if the file exists
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ success: false, message: 'File not found on server' });
-        }
-
-        res.download(filePath, file.originalName); // Serve the file for download
+        // Redirect user to the file's public URL
+        res.redirect(file.fileUrl);
     } catch (err) {
         console.error('Error downloading file:', err.message);
         res.status(500).json({ success: false, message: 'Error downloading file', error: err.message });
@@ -167,11 +171,10 @@ app.delete('/delete/:id', async (req, res) => {
             return res.status(404).json({ success: false, message: 'File not found in database' });
         }
 
-        const filePath = path.join(UPLOAD_DIR, file.fileName);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath); // Remove file from server
-        }
+        // Delete file from Google Cloud Storage
+        await bucket.file(file.fileName).delete();
 
+        // Remove file metadata from the database
         await file.deleteOne();
         res.status(200).json({ success: true, message: 'File deleted successfully' });
     } catch (err) {
