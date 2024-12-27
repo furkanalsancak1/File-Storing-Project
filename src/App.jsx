@@ -2,25 +2,50 @@ import React, { useState } from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './layout.jsx';
-import LogInRegister from './components/login-register-page.jsx';
+import Login from './components/login.jsx';
+import Register from './components/register.jsx';
 import MainPage from './components/main-page.jsx';
 import ProfilePage from './components/profile-page.jsx';
 import ProtectedRoute from './ProtectedRoute';
 
 function App() {
-    const [isAuthenticated, setAuthenticated] = useState(false); // Dynamic authentication state
+    const [isAuthenticated, setAuthenticated] = useState(!!localStorage.getItem('token')); // Check token for initial state
+
+    const handleLogout = () => {
+        localStorage.removeItem('token'); // Clear token
+        setAuthenticated(false); // Update state
+    };
 
     return (
         <BrowserRouter>
             <Routes>
                 {/* Redirect root to login */}
-                <Route path="/" element={<Navigate to="/login" />} />
+                <Route path="/" element={<Navigate to="/login" replace />} />
 
-                {/* Public route for login */}
-                <Route path="/login" element={<LogInRegister setAuthenticated={setAuthenticated} />} />
+                {/* Public routes */}
+                <Route
+                    path="/login"
+                    element={
+                        isAuthenticated ? (
+                            <Navigate to="/main-page" replace />
+                        ) : (
+                            <Login setAuthenticated={setAuthenticated} />
+                        )
+                    }
+                />
+                <Route
+                    path="/register"
+                    element={
+                        isAuthenticated ? (
+                            <Navigate to="/main-page" replace />
+                        ) : (
+                            <Register />
+                        )
+                    }
+                />
 
                 {/* Protected routes wrapped inside Layout */}
-                <Route element={<Layout />}>
+                <Route element={<Layout handleLogout={handleLogout} />}>
                     <Route
                         path="/main-page"
                         element={
@@ -40,7 +65,7 @@ function App() {
                 </Route>
 
                 {/* Catch-all redirect */}
-                <Route path="*" element={<Navigate to="/login" />} />
+                <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
         </BrowserRouter>
     );
