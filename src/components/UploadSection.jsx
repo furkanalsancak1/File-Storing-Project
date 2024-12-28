@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faTrashAlt, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faUpload, faTrashAlt, faCheckCircle, faTag } from '@fortawesome/free-solid-svg-icons';
 
-const UploadSection = ({ onFilesSubmit }) => {
+const UploadSection = ({ onUploadSuccess }) => {
     const [isActive, setIsActive] = useState(false);
     const [uploadedFiles, setUploadedFiles] = useState([]);
-    const [uploadProgress, setUploadProgress] = useState([]); // Track progress for each file
-    const [uploadStatus, setUploadStatus] = useState([]); // Track status for each file
+    const [uploadProgress, setUploadProgress] = useState([]);
+    const [uploadStatus, setUploadStatus] = useState([]);
     const [message, setMessage] = useState('');
 
-    const uploadFileToServer = async (file, index) => {
+    const uploadFileToServer = async (file, index, tags = []) => {
         const formData = new FormData();
         formData.append('files', file);
+        if (tags.length > 0) formData.append('tags', tags.join(',')); // Include tags
 
         try {
             const response = await fetch('http://localhost:5001/upload', {
@@ -25,6 +26,9 @@ const UploadSection = ({ onFilesSubmit }) => {
 
             const data = await response.json();
             console.log('Upload successful:', data);
+
+            // Notify parent component of a successful upload
+            if (onUploadSuccess) onUploadSuccess(data.file);
 
             // Mark upload as completed
             setUploadStatus((prev) => {
@@ -42,24 +46,33 @@ const UploadSection = ({ onFilesSubmit }) => {
         }
     };
 
-    const handleFileUpload = (event) => {
-        const files = Array.from(event.target.files);
-
-        if (files.length === 0) {
-            setMessage('No files selected.');
-            return;
-        }
-
-        setUploadedFiles((prevFiles) => [...prevFiles, ...files]);
-        setUploadProgress((prev) => [...prev, ...files.map(() => 0)]);
-        setUploadStatus((prev) => [...prev, ...files.map(() => 'uploading')]);
-
-        files.forEach((file, idx) => {
-            const fileIndex = uploadedFiles.length + idx; // Calculate correct index
-            simulateUpload(fileIndex); // Start progress simulation
-            uploadFileToServer(file, fileIndex); // Perform real upload
+    const handleFileUpload = async (event) => {
+        const uploadedFiles = Array.from(event.target.files);
+        setFiles(uploadedFiles);
+        uploadedFiles.forEach(async (file) => {
+            const formData = new FormData();
+            formData.append('files', file);
+            try {
+                const response = await fetch('http://localhost:5001/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+                if (!response.ok) throw new Error('Upload failed.');
+                const newFile = await response.json();
+                onUploadSuccess(newFile.file);
+            } catch (error) {
+                console.error('Error uploading file:', error);
+            }
         });
     };
+
+    return (
+        <div>
+            <input type="file" multiple onChange={handleFileUpload} />
+        </div>
+    );
+};
+
 
     const simulateUpload = (index) => {
         let progress = 0;
@@ -91,21 +104,17 @@ const UploadSection = ({ onFilesSubmit }) => {
         setUploadStatus((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = async () => {
-        if (uploadedFiles.length === 0) {
-            setMessage('No files to submit.');
-            return;
-        }
-
-        // Simulate submission or pass files to parent
-        if (onFilesSubmit) {
-            onFilesSubmit(uploadedFiles);
-        }
-
-        setUploadedFiles([]); // Clear files after submission
-        setUploadProgress([]);
-        setUploadStatus([]);
-        setMessage('Files submitted successfully!');
+    const handleAddTag = (index, tag) => {
+        setUploadedFiles((prevFiles) =>
+            prevFiles.map((file, i) =>
+                i === index
+                    ? {
+                          ...file,
+                          tags: [...(file.tags || []), tag.trim()],
+                      }
+                    : file
+            )
+        );
     };
 
     return (
@@ -167,6 +176,17 @@ const UploadSection = ({ onFilesSubmit }) => {
                             </div>
                         )}
 
+                        <input
+                            type="text"
+                            placeholder="Add tag..."
+                            style={{ marginTop: '10px', padding: '5px', width: '100%' }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleAddTag(index, e.target.value.trim());
+                                    e.target.value = ''; // Clear input
+                                }
+                            }}
+                        />
                         <button
                             style={styles.deleteButton}
                             onClick={() => handleDelete(index)}
@@ -179,7 +199,7 @@ const UploadSection = ({ onFilesSubmit }) => {
 
             {/* Submit Button */}
             {uploadedFiles.length > 0 && (
-                <button style={styles.submitButton} onClick={handleSubmit}>
+                <button style={styles.submitButton}>
                     Submit Files
                 </button>
             )}

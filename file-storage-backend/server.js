@@ -12,10 +12,10 @@ const PORT = process.env.PORT || 5001;
 
 // Initialize Google Cloud Storage
 const storage = new Storage({
-    keyFilename: path.join(__dirname, 'google-cloud-key.json'), // Ensure this file exists in your directory
+    keyFilename: path.join(__dirname, 'google-cloud-key.json'),
 });
 
-const bucketName = process.env.GCS_BUCKET_NAME; // Set your bucket name in the .env file
+const bucketName = process.env.GCS_BUCKET_NAME;
 const bucket = storage.bucket(bucketName);
 
 // Middleware
@@ -36,23 +36,19 @@ app.use('/auth', authRoutes);
 
 // Multer Configuration
 const upload = multer({
-    storage: multer.memoryStorage(), // Store file in memory for Google Cloud upload
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB limit
-    fileFilter: (req, file, cb) => {
-        // Allow all file types
-        cb(null, true);
-    },
 });
-
 
 // MongoDB Schema for File Metadata
 const FileSchema = new mongoose.Schema({
-    fileName: String, // File name in the bucket
-    originalName: String, // Original file name
+    fileName: String,
+    originalName: String,
     fileType: String,
     fileSize: Number,
     uploadDate: { type: Date, default: Date.now },
-    fileUrl: String, // URL for accessing the file
+    fileUrl: String,
+    tags: [String], // Added field for tags
 });
 
 const File = mongoose.model('File', FileSchema);
@@ -71,8 +67,10 @@ app.post('/upload', upload.single('files'), async (req, res) => {
         }
 
         const { originalname, mimetype, size } = req.file;
+        const { tags } = req.body; // Accept tags from the request body
 
-        // Create a unique filename for the cloud
+        const parsedTags = tags ? tags.split(',').map((tag) => tag.trim().toLowerCase()) : [];
+
         const cloudFileName = `${Date.now()}-${originalname}`;
         const blob = bucket.file(cloudFileName);
 
@@ -87,16 +85,15 @@ app.post('/upload', upload.single('files'), async (req, res) => {
         });
 
         blobStream.on('finish', async () => {
-            // File upload complete
             const publicUrl = `https://storage.googleapis.com/${bucketName}/${blob.name}`;
 
-            // Save file metadata to MongoDB
             const file = new File({
                 fileName: cloudFileName,
                 originalName: originalname,
                 fileType: mimetype,
                 fileSize: size,
                 fileUrl: publicUrl,
+                tags: parsedTags,
             });
 
             await file.save();
@@ -111,6 +108,7 @@ app.post('/upload', upload.single('files'), async (req, res) => {
                     size: file.fileSize,
                     uploadDate: file.uploadDate,
                     url: file.fileUrl,
+                    tags: file.tags,
                 },
             });
         });
@@ -122,21 +120,40 @@ app.post('/upload', upload.single('files'), async (req, res) => {
     }
 });
 
-app.post('/submit', (req, res) => {
-    const { files } = req.body;
-
-    if (!files || files.length === 0) {
-        return res.status(400).json({ success: false, message: 'No files to submit' });
+// Update Tags for File
+app.patch('/files/:id/tags', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tag } = req.body;
+        const file = await File.findById(id);
+        if (!file) return res.status(404).json({ message: 'File not found' });
+        if (!file.tags) file.tags = [];
+        file.tags.push(tag);
+        await file.save();
+        res.status(200).json(file);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to add tag' });
     }
-
-    console.log('Files submitted:', files);
-    res.status(200).json({ success: true, message: 'Files successfully submitted' });
 });
 
-// Get All Files Route
+// Get All Files Route (with optional search and tags filter)
 app.get('/files', async (req, res) => {
     try {
-        const files = await File.find();
+        const { search, tags } = req.query;
+
+        const query = {};
+
+        if (search) {
+            query.originalName = { $regex: search, $options: 'i' };
+        }
+
+        if (tags) {
+            const tagsArray = tags.split(',').map((tag) => tag.trim().toLowerCase());
+            query.tags = { $all: tagsArray };
+        }
+
+        const files = await File.find(query);
         res.status(200).json(files);
     } catch (err) {
         console.error('Error fetching files:', err.message);
@@ -149,18 +166,15 @@ app.get('/download/:id', async (req, res) => {
     try {
         const fileId = req.params.id;
 
-        // Validate the ID
         if (!mongoose.Types.ObjectId.isValid(fileId)) {
             return res.status(400).json({ success: false, message: 'Invalid file ID' });
         }
 
-        // Find the file in the database
         const file = await File.findById(fileId);
         if (!file) {
-            return res.status(404).json({ success: false, message: 'File not found in database' });
+            return res.status(404).json({ success: false, message: 'File not found' });
         }
 
-        // Redirect user to the file's public URL
         res.redirect(file.fileUrl);
     } catch (err) {
         console.error('Error downloading file:', err.message);
@@ -179,14 +193,12 @@ app.delete('/delete/:id', async (req, res) => {
 
         const file = await File.findById(fileId);
         if (!file) {
-            return res.status(404).json({ success: false, message: 'File not found in database' });
+            return res.status(404).json({ success: false, message: 'File not found' });
         }
 
-        // Delete file from Google Cloud Storage
         await bucket.file(file.fileName).delete();
-
-        // Remove file metadata from the database
         await file.deleteOne();
+
         res.status(200).json({ success: true, message: 'File deleted successfully' });
     } catch (err) {
         console.error('Error deleting file:', err.message);

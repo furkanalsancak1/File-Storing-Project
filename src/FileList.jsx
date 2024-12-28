@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 
 function FileList() {
     const [files, setFiles] = useState([]);
+    const [tagFilter, setTagFilter] = useState(''); // State for filtering by tags
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Fetch files from the backend
     useEffect(() => {
         const fetchFiles = async () => {
             setLoading(true);
@@ -17,7 +19,7 @@ function FileList() {
                 setFiles(data);
             } catch (err) {
                 console.error(err);
-                setError('Failed to fetch files. Please try again later.');
+                setError('Failed to fetch files.');
             } finally {
                 setLoading(false);
             }
@@ -26,86 +28,81 @@ function FileList() {
         fetchFiles();
     }, []);
 
-    const formatFileSize = (size) => {
-        if (size >= 1024 * 1024) {
-            return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-        } else if (size >= 1024) {
-            return `${(size / 1024).toFixed(2)} KB`;
-        } else {
-            return `${size} bytes`;
-        }
-    };
-
-    const handleDelete = async (id) => {
-        const confirmDelete = window.confirm('Are you sure you want to delete this file?');
-        if (!confirmDelete) return;
-
+    // Add a tag to a file
+    const addTag = async (fileId, tag) => {
         try {
-            const response = await fetch(`http://localhost:5001/delete/${id}`, {
-                method: 'DELETE',
+            const response = await fetch(`http://localhost:5001/files/${fileId}/tags`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag }),
             });
 
             if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
+                throw new Error('Failed to add tag.');
             }
 
-            setFiles((prevFiles) => prevFiles.filter((file) => file._id !== id));
+            const updatedFile = await response.json();
+            setFiles((prevFiles) =>
+                prevFiles.map((file) => (file._id === fileId ? updatedFile : file))
+            );
         } catch (err) {
             console.error(err);
-            setError('Failed to delete file. Please try again later.');
+            setError('Error adding tag.');
         }
     };
+
+    // Filter files by tag
+    const filteredFiles = files.filter((file) =>
+        tagFilter
+            ? file.tags.some((tag) => tag.toLowerCase().includes(tagFilter.toLowerCase()))
+            : true
+    );
 
     return (
         <div>
             <h2>Uploaded Files</h2>
             {loading && <p>Loading files...</p>}
             {error && <p style={{ color: 'red' }}>{error}</p>}
-            {!loading && !error && files.length === 0 && <p>No files uploaded yet.</p>}
-            {!loading && !error && files.length > 0 && (
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '2px solid #ddd' }}>
-                            <th style={{ textAlign: 'left', padding: '10px' }}>File Name</th>
-                            <th style={{ textAlign: 'left', padding: '10px' }}>Type</th>
-                            <th style={{ textAlign: 'left', padding: '10px' }}>Size</th>
-                            <th style={{ textAlign: 'left', padding: '10px' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {files.map((file) => (
-                            <tr key={file._id} style={{ borderBottom: '1px solid #ddd' }}>
-                                <td style={{ padding: '10px' }}>{file.fileName}</td>
-                                <td style={{ padding: '10px' }}>{file.fileType}</td>
-                                <td style={{ padding: '10px' }}>{formatFileSize(file.fileSize)}</td>
-                                <td style={{ padding: '10px' }}>
-                                    <a
-                                        href={`http://localhost:5001/download/${file._id}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{ color: '#3B82F6' }}
-                                    >
-                                        <FontAwesomeIcon icon={faDownload} style={styles.actionIcon} />
-                                    </a>
-                                    <button
-                                        onClick={() => handleDelete(file._id)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            backgroundColor: 'red',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer',
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+
+            {/* Tag Filter Input */}
+            {!loading && (
+                <input
+                    type="text"
+                    placeholder="Filter by tag..."
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    style={{ marginBottom: '20px', padding: '5px' }}
+                />
             )}
+
+            {!loading && filteredFiles.length === 0 && <p>No files found with this tag.</p>}
+
+            {/* File List */}
+            {!loading &&
+                filteredFiles.map((file) => (
+                    <div key={file._id} style={{ marginBottom: '20px', border: '1px solid #ddd', padding: '10px', borderRadius: '8px' }}>
+                        <h3>{file.originalName}</h3>
+                        <p>Type: {file.fileType}</p>
+                        <p>Size: {(file.fileSize / 1024).toFixed(2)} KB</p>
+                        <p>
+                            <strong>Tags:</strong>{' '}
+                            {file.tags.length > 0 ? file.tags.join(', ') : 'No tags'}
+                        </p>
+
+                        {/* Add Tag Input */}
+                        <input
+                            type="text"
+                            placeholder="Add a tag..."
+                            style={{ marginTop: '10px', padding: '5px', width: '200px' }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    addTag(file._id, e.target.value.trim());
+                                    e.target.value = ''; // Clear input
+                                }
+                            }}
+                        />
+                    </div>
+                ))}
         </div>
     );
 }

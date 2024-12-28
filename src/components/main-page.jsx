@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import UploadSection from './UploadSection';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFilePdf, faTrashAlt, faDownload, faFileImage, faFileAlt } from '@fortawesome/free-solid-svg-icons';
+import { faFilePdf, faTrashAlt, faDownload, faFileImage, faFileAlt, faTag } from '@fortawesome/free-solid-svg-icons';
 
 const MainPage = () => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [tagFilter, setTagFilter] = useState(''); // Tag filter
 
     // Fetch files from the backend
     const fetchFiles = async () => {
@@ -20,8 +20,8 @@ const MainPage = () => {
             const data = await response.json();
             setFiles(data);
         } catch (err) {
-            setError('Failed to fetch files.');
             console.error(err);
+            setError('Failed to fetch files.');
         } finally {
             setLoading(false);
         }
@@ -52,6 +52,36 @@ const MainPage = () => {
         }
     };
 
+    // Add a tag to a file
+    const addTag = async (fileId, tag) => {
+        try {
+            const response = await fetch(`http://localhost:5001/files/${fileId}/tags`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tag }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to add tag.');
+            }
+
+            const updatedFile = await response.json();
+            setFiles((prevFiles) =>
+                prevFiles.map((file) => (file._id === fileId ? updatedFile : file))
+            );
+        } catch (err) {
+            console.error(err);
+            setError('Error adding tag.');
+        }
+    };
+
+    // Filter files by tag
+    const filteredFiles = files.filter((file) =>
+        tagFilter
+            ? file.tags.some((tag) => tag.toLowerCase().includes(tagFilter.toLowerCase()))
+            : true
+    );
+
     // Get icon based on file type
     const getFileIcon = (fileType) => {
         if (fileType.includes('pdf')) return faFilePdf;
@@ -67,11 +97,13 @@ const MainPage = () => {
                 <p style={styles.subtitle}>Your files, anywhere, anytime.</p>
             </header>
 
-            {/* Upload Section */}
-            <UploadSection
-                onUploadSuccess={(newFile) => {
-                    setFiles((prevFiles) => [...prevFiles, newFile]); // Add newly uploaded file
-                }}
+            {/* Tag Filter */}
+            <input
+                type="text"
+                placeholder="Filter by tag..."
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                style={{ marginBottom: '20px', padding: '10px', width: '100%' }}
             />
 
             {/* File List Section */}
@@ -79,10 +111,10 @@ const MainPage = () => {
                 <h2 style={styles.fileListTitle}>Your Files</h2>
                 {loading && <p>Loading files...</p>}
                 {error && <p style={{ color: 'red' }}>{error}</p>}
-                {!loading && !error && files.length === 0 && <p>No files uploaded yet.</p>}
+                {!loading && !error && filteredFiles.length === 0 && <p>No files found.</p>}
                 {!loading &&
                     !error &&
-                    files.map((file) => (
+                    filteredFiles.map((file) => (
                         <div style={styles.fileCard} key={file._id}>
                             <div style={styles.fileInfo}>
                                 <FontAwesomeIcon
@@ -90,11 +122,17 @@ const MainPage = () => {
                                     style={styles.fileIcon}
                                 />
                                 <div>
-                                    <p style={styles.fileName}>{file.fileName}</p>
+                                    <p style={styles.fileName}>{file.originalName}</p>
                                     <p style={styles.fileMeta}>
                                         {`${(file.fileSize / 1024).toFixed(2)} KB • Uploaded ${
                                             new Date(file.uploadDate).toDateString()
                                         }`}
+                                    </p>
+                                    <p style={styles.fileTags}>
+                                        <FontAwesomeIcon icon={faTag} style={styles.tagIcon} />
+                                        {file.tags.length > 0
+                                            ? file.tags.join(', ')
+                                            : 'No tags'}
                                     </p>
                                 </div>
                             </div>
@@ -111,6 +149,17 @@ const MainPage = () => {
                                     icon={faTrashAlt}
                                     style={styles.actionIcon}
                                     onClick={() => handleDelete(file._id)}
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Add tag..."
+                                    style={{ marginTop: '10px', padding: '5px', width: '100%' }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            addTag(file._id, e.target.value.trim());
+                                            e.target.value = ''; // Clear input
+                                        }
+                                    }}
                                 />
                             </div>
                         </div>
@@ -183,25 +232,24 @@ const styles = {
         color: '#64748B',
         margin: 0,
     },
+    fileTags: {
+        fontSize: '14px',
+        color: '#1D4ED8',
+        margin: 0,
+    },
+    tagIcon: {
+        marginRight: '5px',
+    },
     fileActions: {
         display: 'flex',
-        gap: '20px', // Adds proper spacing between buttons
+        flexDirection: 'column',
+        gap: '10px',
     },
     actionIcon: {
         fontSize: '20px',
         color: '#64748B',
         cursor: 'pointer',
         transition: 'color 0.2s',
-    },
-    submitButton: {
-        backgroundColor: '#3B82F6',
-        color: '#FFFFFF',
-        border: 'none',
-        padding: '10px 20px',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        fontSize: '16px',
-        marginBottom: '20px',
     },
 };
 
