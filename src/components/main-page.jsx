@@ -83,9 +83,10 @@ const MainPage = () => {
     // Filter files by tag
     const filteredFiles = files.filter((file) =>
         tagFilter
-            ? file.tags.some((tag) => tag.toLowerCase().includes(tagFilter.toLowerCase()))
+            ? Array.isArray(file.tags) && file.tags.some((tag) => tag.toLowerCase().includes(tagFilter.toLowerCase()))
             : true
     );
+
 
     // Get icon based on file type
     const getFileIcon = (fileType) => {
