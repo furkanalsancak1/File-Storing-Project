@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import UploadSection from './UploadSection'; // Import the UploadSection component
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFilePdf, faTrashAlt, faDownload, faFileImage, faFileAlt, faTag } from '@fortawesome/free-solid-svg-icons';
 
@@ -54,6 +55,10 @@ const MainPage = () => {
 
     // Add a tag to a file
     const addTag = async (fileId, tag) => {
+        if (!tag.trim()) {
+            alert('Tag cannot be empty.');
+            return;
+        }
         try {
             const response = await fetch(`http://localhost:5001/files/${fileId}/tags`, {
                 method: 'PATCH',
@@ -96,6 +101,13 @@ const MainPage = () => {
                 <h1 style={styles.title}>FlexFile</h1>
                 <p style={styles.subtitle}>Your files, anywhere, anytime.</p>
             </header>
+
+            {/* File Upload Section */}
+            <UploadSection
+                onUploadSuccess={(newFile) => {
+                    setFiles((prevFiles) => [...prevFiles, newFile]); // Add newly uploaded file
+                }}
+            />
 
             {/* Tag Filter */}
             <input

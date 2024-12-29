@@ -46,33 +46,24 @@ const UploadSection = ({ onUploadSuccess }) => {
         }
     };
 
-    const handleFileUpload = async (event) => {
-        const uploadedFiles = Array.from(event.target.files);
-        setFiles(uploadedFiles);
-        uploadedFiles.forEach(async (file) => {
-            const formData = new FormData();
-            formData.append('files', file);
-            try {
-                const response = await fetch('http://localhost:5001/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-                if (!response.ok) throw new Error('Upload failed.');
-                const newFile = await response.json();
-                onUploadSuccess(newFile.file);
-            } catch (error) {
-                console.error('Error uploading file:', error);
-            }
+    const handleFileUpload = (event) => {
+        const files = Array.from(event.target.files);
+
+        if (files.length === 0) {
+            setMessage('No files selected.');
+            return;
+        }
+
+        setUploadedFiles((prevFiles) => [...prevFiles, ...files]);
+        setUploadProgress((prev) => [...prev, ...files.map(() => 0)]);
+        setUploadStatus((prev) => [...prev, ...files.map(() => 'uploading')]);
+
+        files.forEach((file, idx) => {
+            const fileIndex = uploadedFiles.length + idx; // Calculate correct index
+            simulateUpload(fileIndex); // Start progress simulation
+            uploadFileToServer(file, fileIndex); // Perform real upload
         });
     };
-
-    return (
-        <div>
-            <input type="file" multiple onChange={handleFileUpload} />
-        </div>
-    );
-};
-
 
     const simulateUpload = (index) => {
         let progress = 0;

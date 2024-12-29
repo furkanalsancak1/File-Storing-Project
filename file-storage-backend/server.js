@@ -137,6 +137,48 @@ app.patch('/files/:id/tags', async (req, res) => {
     }
 });
 
+// Delete a tag from a file
+app.patch('/files/:id/tags/delete', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tag } = req.body;
+
+        const file = await File.findById(id);
+        if (!file) return res.status(404).json({ message: 'File not found' });
+
+        file.tags = file.tags.filter((existingTag) => existingTag !== tag);
+        await file.save();
+
+        res.status(200).json(file);
+    } catch (error) {
+        console.error('Error deleting tag:', error.message);
+        res.status(500).json({ message: 'Failed to delete tag' });
+    }
+});
+
+// Edit a tag for a file
+app.patch('/files/:id/tags/edit', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { oldTag, newTag } = req.body;
+
+        const file = await File.findById(id);
+        if (!file) return res.status(404).json({ message: 'File not found' });
+
+        const tagIndex = file.tags.indexOf(oldTag);
+        if (tagIndex === -1) return res.status(400).json({ message: 'Tag not found' });
+
+        file.tags[tagIndex] = newTag;
+        await file.save();
+
+        res.status(200).json(file);
+    } catch (error) {
+        console.error('Error editing tag:', error.message);
+        res.status(500).json({ message: 'Failed to edit tag' });
+    }
+});
+
+
 // Get All Files Route (with optional search and tags filter)
 app.get('/files', async (req, res) => {
     try {
