@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import UploadSection from './UploadSection'; // Import the UploadSection component
+import EnhancedUpload from './EnhancedUpload';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFilePdf, faTrashAlt, faDownload, faFileImage, faFileAlt, faTag } from '@fortawesome/free-solid-svg-icons';
 
@@ -105,7 +106,7 @@ const MainPage = () => {
             </header>
 
             {/* File Upload Section */}
-            <UploadSection
+            <EnhancedUpload
                 onUploadSuccess={(newFile) => {
                     setFiles((prevFiles) => [...prevFiles, newFile]); // Add newly uploaded file
                 }}

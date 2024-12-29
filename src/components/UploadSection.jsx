@@ -38,6 +38,8 @@ const UploadSection = ({ onUploadSuccess }) => {
                     : item
             )
         );
+
+        setMessage(''); // Clear any existing messages
     };
 
     // Remove a tag from a file
@@ -67,7 +69,7 @@ const UploadSection = ({ onUploadSuccess }) => {
             for (const heldFile of heldFiles) {
                 const formData = new FormData();
                 formData.append('files', heldFile.file);
-                formData.append('tags', heldFile.tags.join(','));
+                formData.append('tags', heldFile.tags.join(',')); // Send tags as a comma-separated string
 
                 const response = await fetch('http://localhost:5001/upload', {
                     method: 'POST',
@@ -75,7 +77,7 @@ const UploadSection = ({ onUploadSuccess }) => {
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to upload file.');
+                    throw new Error(`Failed to upload ${heldFile.file.name}`);
                 }
 
                 const data = await response.json();
