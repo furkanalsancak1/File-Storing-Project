@@ -89,6 +89,7 @@ const MainPage = () => {
 
     // Get icon based on file type
     const getFileIcon = (fileType) => {
+        if (!fileType) return faFileAlt; // Default icon for unknown file types
         if (fileType.includes('pdf')) return faFilePdf;
         if (fileType.includes('image')) return faFileImage;
         return faFileAlt;

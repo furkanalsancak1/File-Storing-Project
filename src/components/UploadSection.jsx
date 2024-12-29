@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faTrashAlt, faCheckCircle, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faUpload, faTrashAlt, faCheckCircle, faTag, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
 
 const UploadSection = ({ onUploadSuccess }) => {
     const [isActive, setIsActive] = useState(false);
@@ -9,10 +9,11 @@ const UploadSection = ({ onUploadSuccess }) => {
     const [uploadStatus, setUploadStatus] = useState([]);
     const [message, setMessage] = useState('');
 
+    // Upload file to the server
     const uploadFileToServer = async (file, index, tags = []) => {
         const formData = new FormData();
         formData.append('files', file);
-        if (tags.length > 0) formData.append('tags', tags.join(',')); // Include tags
+        if (tags.length > 0) formData.append('tags', tags.join(',')); // Add tags
 
         try {
             const response = await fetch('http://localhost:5001/upload', {
@@ -21,13 +22,13 @@ const UploadSection = ({ onUploadSuccess }) => {
             });
 
             if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText}`);
+                throw new Error(`Failed to upload ${file.name}`);
             }
 
             const data = await response.json();
             console.log('Upload successful:', data);
 
-            // Notify parent component of a successful upload
+            // Notify parent about the upload success
             if (onUploadSuccess) onUploadSuccess(data.file);
 
             // Mark upload as completed
@@ -37,15 +38,17 @@ const UploadSection = ({ onUploadSuccess }) => {
                 return newStatus;
             });
         } catch (error) {
-            console.error('Error uploading file:', error.message);
+            console.error(error.message);
             setUploadStatus((prev) => {
                 const newStatus = [...prev];
                 newStatus[index] = 'failed';
                 return newStatus;
             });
+            setMessage(`Error uploading file: ${file.name}`);
         }
     };
 
+    // Handle file input
     const handleFileUpload = (event) => {
         const files = Array.from(event.target.files);
 
@@ -59,12 +62,13 @@ const UploadSection = ({ onUploadSuccess }) => {
         setUploadStatus((prev) => [...prev, ...files.map(() => 'uploading')]);
 
         files.forEach((file, idx) => {
-            const fileIndex = uploadedFiles.length + idx; // Calculate correct index
-            simulateUpload(fileIndex); // Start progress simulation
-            uploadFileToServer(file, fileIndex); // Perform real upload
+            const fileIndex = uploadedFiles.length + idx; // Calculate the correct index
+            simulateUpload(fileIndex); // Simulate upload progress
+            uploadFileToServer(file, fileIndex); // Perform actual upload
         });
     };
 
+    // Simulate upload progress
     const simulateUpload = (index) => {
         let progress = 0;
         const interval = setInterval(() => {
@@ -81,6 +85,7 @@ const UploadSection = ({ onUploadSuccess }) => {
         }, 200);
     };
 
+    // Handle drag-and-drop file upload
     const handleDrop = (event) => {
         event.preventDefault();
         setIsActive(false);
@@ -89,13 +94,20 @@ const UploadSection = ({ onUploadSuccess }) => {
         handleFileUpload({ target: { files } });
     };
 
+    // Handle delete file preview
     const handleDelete = (index) => {
         setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
         setUploadProgress((prev) => prev.filter((_, i) => i !== index));
         setUploadStatus((prev) => prev.filter((_, i) => i !== index));
     };
 
+    // Handle adding tags
     const handleAddTag = (index, tag) => {
+        if (!tag.trim()) {
+            setMessage('Tag cannot be empty.');
+            return;
+        }
+
         setUploadedFiles((prevFiles) =>
             prevFiles.map((file, i) =>
                 i === index
@@ -108,8 +120,23 @@ const UploadSection = ({ onUploadSuccess }) => {
         );
     };
 
+    // Handle removing tags
+    const handleRemoveTag = (index, tagToRemove) => {
+        setUploadedFiles((prevFiles) =>
+            prevFiles.map((file, i) =>
+                i === index
+                    ? {
+                          ...file,
+                          tags: file.tags.filter((tag) => tag !== tagToRemove),
+                      }
+                    : file
+            )
+        );
+    };
+
     return (
         <div>
+            {/* Upload Area */}
             <section
                 style={{
                     ...styles.uploadArea,
@@ -126,8 +153,6 @@ const UploadSection = ({ onUploadSuccess }) => {
             >
                 <FontAwesomeIcon icon={faUpload} style={styles.uploadIcon} />
                 <p style={styles.uploadText}>Drop files here or click to upload</p>
-                <p style={styles.uploadSubText}>Upload any file type</p>
-
                 <input
                     id="fileInput"
                     type="file"
@@ -139,16 +164,16 @@ const UploadSection = ({ onUploadSuccess }) => {
 
             {message && <p style={styles.message}>{message}</p>}
 
+            {/* File Preview */}
             <div style={styles.filePreviewContainer}>
                 {uploadedFiles.map((file, index) => (
                     <div key={index} style={styles.fileCard}>
                         <div style={styles.fileInfo}>
                             <p style={styles.fileName}>{file.name}</p>
-                            <p style={styles.fileMeta}>
-                                {(file.size / 1024).toFixed(2)} KB
-                            </p>
+                            <p style={styles.fileMeta}>{(file.size / 1024).toFixed(2)} KB</p>
                         </div>
 
+                        {/* Upload Status */}
                         {uploadStatus[index] === 'uploaded' ? (
                             <div style={styles.uploadedStatus}>
                                 <FontAwesomeIcon icon={faCheckCircle} style={styles.successIcon} />
@@ -167,17 +192,34 @@ const UploadSection = ({ onUploadSuccess }) => {
                             </div>
                         )}
 
+                        {/* Tags */}
+                        <div style={styles.tagsContainer}>
+                            {file.tags?.map((tag, i) => (
+                                <span key={i} style={styles.tag}>
+                                    {tag}{' '}
+                                    <FontAwesomeIcon
+                                        icon={faTimesCircle}
+                                        style={styles.removeTagIcon}
+                                        onClick={() => handleRemoveTag(index, tag)}
+                                    />
+                                </span>
+                            ))}
+                        </div>
+
+                        {/* Add Tag Input */}
                         <input
                             type="text"
                             placeholder="Add tag..."
-                            style={{ marginTop: '10px', padding: '5px', width: '100%' }}
+                            style={styles.tagInput}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     handleAddTag(index, e.target.value.trim());
-                                    e.target.value = ''; // Clear input
+                                    e.target.value = '';
                                 }
                             }}
                         />
+
+                        {/* Delete File Preview */}
                         <button
                             style={styles.deleteButton}
                             onClick={() => handleDelete(index)}
@@ -187,13 +229,6 @@ const UploadSection = ({ onUploadSuccess }) => {
                     </div>
                 ))}
             </div>
-
-            {/* Submit Button */}
-            {uploadedFiles.length > 0 && (
-                <button style={styles.submitButton}>
-                    Submit Files
-                </button>
-            )}
         </div>
     );
 };
