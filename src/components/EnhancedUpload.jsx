@@ -179,7 +179,7 @@ const styles = {
     container: {
         fontFamily: 'Inter, sans-serif',
         backgroundColor: '#F1F5F9',
-        minHeight: '100vh',
+        minHeight: '50vh',
         padding: '20px',
         display: 'flex',
         flexDirection: 'column',
@@ -204,7 +204,7 @@ const styles = {
         width: '100%',
         maxWidth: '800px',
         backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
+        borderRadius: '8px',
         boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
         padding: '20px',
     },

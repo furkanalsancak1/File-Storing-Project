@@ -118,7 +118,7 @@ const MainPage = () => {
                 placeholder="Filter by tag..."
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
-                style={{ marginBottom: '20px', padding: '10px', width: '100%' }}
+                style={{ marginBottom: '20px', padding: '10px', width: '50%' }}
             />
 
             {/* File List Section */}

@@ -3,6 +3,7 @@ import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './layout.jsx';
 import Login from './components/login.jsx';
+import Welcome from './components/welcome.jsx'; // Ensure the import path is correct
 import Register from './components/register.jsx';
 import MainPage from './components/main-page.jsx';
 import ProfilePage from './components/profile-page.jsx';
@@ -19,8 +20,11 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
-                {/* Redirect root to login */}
-                <Route path="/" element={<Navigate to="/login" replace />} />
+                {/* Welcome page route */}
+                <Route path="/welcome" element={<Welcome />} />
+
+                {/* Redirect root to welcome */}
+                <Route path="/" element={<Navigate to="/welcome" replace />} />
 
                 {/* Public routes */}
                 <Route
@@ -65,7 +69,7 @@ function App() {
                 </Route>
 
                 {/* Catch-all redirect */}
-                <Route path="*" element={<Navigate to="/login" replace />} />
+                <Route path="*" element={<Navigate to="/welcome" replace />} />
             </Routes>
         </BrowserRouter>
     );

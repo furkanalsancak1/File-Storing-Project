@@ -1,10 +1,11 @@
 import React from 'react';
 
 const Header = () => {
+    console.log(logo); // Debug the path to ensure it resolves correctly
     return (
         <header style={styles.header}>
             <div style={styles.logoContainer}>
-                {/* Add your logo here, can be an image or text */}
+            
                 <h1 style={styles.logo}>Cloud Storage</h1>
             </div>
             <nav style={styles.nav}>
@@ -50,6 +51,12 @@ const styles = {
     navLinkHover: {
         color: '#ffd700',
     },
+    logoImage: {
+        width: '40px',
+        height: '40px',
+        marginRight: '10px',
+        borderRadius: '50%', // Optional for circular logos
+    }
 };
 
 export default Header;

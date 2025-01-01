@@ -1,20 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function LogoutButton() {
+function LogoutButton({ setAuthenticated }) {
     const navigate = useNavigate();
 
     const handleLogout = () => {
         // Clear the JWT token
         localStorage.removeItem('token');
-    
+
         // Trigger state change for authentication
         setAuthenticated(false);
-    
-        // Redirect to the login page
-        navigate('/login');
+
+        // Redirect to the Welcome page
+        navigate('/welcome');
     };
-    
 
     return (
         <button 
